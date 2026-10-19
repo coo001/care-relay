@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care Relay card</title>
+<style>
+  :root { --bg:#0f1b2a; --fg:#eef3f8; --muted:#9fb0c3; --ok:#3ccf8e; --due:#ffcc4d; --late:#ff6b6b; --line:#24364c; --accent:#5ec8f2; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--fg); }
+  .card { padding:16px 18px; }
+  h2 { margin:0 0 2px; font-size:19px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:12px; }
+  .sec { margin-top:12px; }
+  .sec h3 { margin:0 0 6px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .row { display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid var(--line); }
+  .row:first-of-type { border-top:0; }
+  .dot { width:10px; height:10px; border-radius:50%; flex:none; }
+  .done .dot { background:var(--ok); } .due .dot { background:var(--due); } .overdue .dot { background:var(--late); } .upcoming .dot { background:#4b6178; }
+  .main { flex:1; }
+  .meta { color:var(--muted); font-size:12.5px; }
+  .tag { font-size:11px; padding:2px 7px; border-radius:99px; border:1px solid currentColor; }
+  .overdue .tag { color:var(--late); } .due .tag { color:var(--due); } .done .tag { color:var(--ok); } .upcoming .tag { color:var(--muted); }
+  button { font:inherit; font-size:13px; background:var(--accent); color:#06202d; border:0; border-radius:8px; padding:5px 10px; cursor:pointer; }
+  .note { background:#1b2b40; border-left:3px solid var(--due); padding:7px 10px; border-radius:6px; margin:5px 0; }
+  .notice { margin-top:10px; color:var(--ok); font-size:13px; }
+  .empty { color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="card" id="root"><div class="empty">Waiting for data…</div></div>
+<script>
+// Minimal MCP Apps view (spec 2026-01-26): JSON-RPC over postMessage with the host.
+let nextId = 1; const waiting = new Map(); let me = 'Ava';
+const post = (msg) => window.parent.postMessage({ jsonrpc: '2.0', ...msg }, '*');
+const request = (method, params) => new Promise((resolve, reject) => { const id = nextId++; waiting.set(id, { resolve, reject }); post({ id, method, params }); });
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+window.addEventListener('message', (ev) => {
+  const m = ev.data; if (!m || m.jsonrpc !== '2.0') return;
+  if (m.id && waiting.has(m.id) && !m.method) { const w = waiting.get(m.id); waiting.delete(m.id); m.error ? w.reject(m.error) : w.resolve(m.result); return; }
+  if (m.method === 'ui/notifications/tool-input') { if (m.params?.arguments?.by) me = m.params.arguments.by; if (m.params?.arguments?.to) me = m.params.arguments.to; }
+  if (m.method === 'ui/notifications/tool-result') render(m.params?.structuredContent || {});
+  if (m.method === 'ui/notifications/host-context-changed' && m.params?.speaker) me = m.params.speaker;
+});
+
+function rowHtml(r, withButton) {
+  const right = r.state === 'done' ? `<span class="meta">${esc(r.by)} · ${esc(r.doneAt)}</span>` :
+    (withButton && (r.state === 'due' || r.state === 'overdue')) ? `<button data-item="${esc(r.itemId)}">Mark done</button>` : '';
+  return `<div class="row ${r.state}"><span class="dot"></span><div class="main"><div>${esc(r.item)} <span class="tag">${r.state}</span></div><div class="meta">${esc(r.timeLabel)}${r.instructions ? ' · ' + esc(r.instructions) : ''}</div></div>${right}</div>`;
+}
+
+function render(d) {
+  const root = document.getElementById('root');
+  if (d.view === 'handoff') {
+    root.innerHTML = `
+      <h2>Shift hand-off${d.to ? ' for ' + esc(d.to) : ''}</h2>
+      <div class="sub">Caring for ${esc(d.recipient)} · since ${esc(d.sinceLabel)} · now ${esc(d.atLabel)}</div>
+      <div class="sec"><h3>Needs attention</h3>${d.open.length ? d.open.map((r) => rowHtml(r, true)).join('') : '<div class="empty">Nothing open right now.</div>'}</div>
+      <div class="sec"><h3>Notes for you</h3>${d.notes.length ? d.notes.map((n) => `<div class="note">${esc(n.details || n.item)}<div class="meta">${esc(n.by)} · ${esc(n.at)}</div></div>`).join('') : '<div class="empty">No notes.</div>'}</div>
+      <div class="sec"><h3>Done since last hand-off</h3>${d.done.length ? d.done.map((x) => `<div class="row done"><span class="dot"></span><div class="main">${esc(x.item)}</div><span class="meta">${esc(x.by)} · ${esc(x.at)}</span></div>`).join('') : '<div class="empty">Nothing logged.</div>'}</div>
+      <div class="sec"><h3>Coming up</h3>${d.upcoming.length ? d.upcoming.map((r) => rowHtml(r, false)).join('') : '<div class="empty">Nothing else today.</div>'}</div>`;
+  } else {
+    const rows = d.rows || [];
+    root.innerHTML = `<h2>Today's care${d.matched ? ': ' + esc(d.matched) : ''}</h2><div class="sub">From the shared family log</div>
+      <div class="sec">${rows.length ? rows.map((r) => rowHtml(r, true)).join('') : '<div class="empty">No matching plan item.</div>'}</div>
+      ${d.notice ? `<div class="notice">${esc(d.notice)}</div>` : ''}`;
+  }
+  root.querySelectorAll('button[data-item]').forEach((b) => b.addEventListener('click', async () => {
+    b.disabled = true; b.textContent = 'Saving…';
+    const res = await request('tools/call', { name: 'mark_done_from_card', arguments: { itemId: b.dataset.item, by: me } });
+    render(res.structuredContent || {});
+  }));
+  post({ method: 'ui/notifications/size-changed', params: { height: Math.ceil(document.getElementById('root').getBoundingClientRect().height) + 2 } });
+}
+
+(async () => {
+  const init = await request('ui/initialize', { protocolVersion: '2026-01-26', appInfo: { name: 'care-relay-card', version: '0.1.0' }, appCapabilities: { availableDisplayModes: ['inline'] } });
+  if (init?.hostContext?.speaker) me = init.hostContext.speaker;
+  post({ method: 'ui/notifications/initialized', params: {} });
+})();
+</script>
+</body>
+</html>
