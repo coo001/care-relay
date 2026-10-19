@@ -1,0 +1,19 @@
+{
+  "name": "care-relay",
+  "version": "0.1.0",
+  "description": "Care Relay: a shared family care log for Alexa+, as a self-hosted MCP server (Streamable HTTP, MCP 2025-11-25) with an MCP Apps card.",
+  "main": "server/mcp.js",
+  "scripts": {
+    "start": "node bin/start.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^3.25.76"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
