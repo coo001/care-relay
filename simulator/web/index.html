@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care Relay · simulated Alexa+ console</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">Care Relay <span>simulated Alexa+ console</span></div>
+  <div class="right"><span id="clock"></span><button id="seed" class="ghost">Load sample care plan</button></div>
+</header>
+<main>
+  <section class="device">
+    <div class="screen">
+      <div class="ring" id="ring"></div>
+      <div class="said" id="said">Say something, or tap a sample request below.</div>
+      <div class="reply" id="reply"></div>
+      <div class="cardwrap" id="cardwrap" hidden><iframe id="card" sandbox="allow-scripts" title="MCP App card"></iframe></div>
+    </div>
+    <form id="form">
+      <label class="who">Speaker
+        <select id="speaker"><option>Ava</option><option>Ben</option><option>Jun</option></select>
+      </label>
+      <input id="text" autocomplete="off" placeholder="e.g. I gave Mom her evening pills">
+      <button type="button" id="mic" title="Speak (browser speech recognition)">🎤</button>
+      <button type="submit">Send</button>
+    </form>
+    <div class="samples" id="samples"></div>
+  </section>
+  <aside class="dev">
+    <h3>MCP traffic <span>Streamable HTTP · /mcp</span></h3>
+    <ol id="log"></ol>
+  </aside>
+</main>
+<script src="/app.js" type="module"></script>
+</body>
+</html>
